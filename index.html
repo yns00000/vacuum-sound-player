@@ -4,94 +4,75 @@
   <meta charset="UTF-8">
   <title>생활 소음 볼륨 체험</title>
   <style>
-    body {
-      font-family: sans-serif;
-      padding: 40px;
-      text-align: center;
-    }
-    .sound-block {
-      margin-bottom: 50px;
-    }
-    .slider {
-      width: 300px;
-      margin: 15px auto;
-    }
-    button {
-      padding: 8px 16px;
-      font-size: 14px;
-    }
-    h2 {
-      margin-bottom: 5px;
-    }
-    audio {
-      display: none;
-    }
+    body { font-family: sans-serif; padding: 40px; text-align: center; }
+    .sound-block { margin-bottom: 50px; }
+    .slider { width: 300px; margin: 15px auto; }
+    button { padding: 8px 16px; font-size: 14px; }
+    h2 { margin-bottom: 5px; }
   </style>
 </head>
 <body>
 
   <h1>생활 소음 볼륨 체험</h1>
 
-  <div class="sound-block">
-    <h2>청소기 소리</h2>
-    <audio id="vacuum" src="vacuum.mp3" loop></audio>
-    <button onclick="togglePlay('vacuum')">▶ 재생 / ⏸ 정지</button>
-    <div class="slider">
-      <input type="range" min="-10" max="80" step="5" value="40" oninput="updateVolume(this.value, 'vacuum')">
-      <div>볼륨: <span id="label-vacuum">40</span> dB</div>
-    </div>
-  </div>
-
-  <div class="sound-block">
-    <h2>사이렌 소리</h2>
-    <audio id="siren" src="siren.mp3" loop></audio>
-    <button onclick="togglePlay('siren')">▶ 재생 / ⏸ 정지</button>
-    <div class="slider">
-      <input type="range" min="-10" max="80" step="5" value="40" oninput="updateVolume(this.value, 'siren')">
-      <div>볼륨: <span id="label-siren">40</span> dB</div>
-    </div>
-  </div>
-
-  <div class="sound-block">
-    <h2>헤어드라이기 소리</h2>
-    <audio id="hairdryer" src="hairdryer.mp3" loop></audio>
-    <button onclick="togglePlay('hairdryer')">▶ 재생 / ⏸ 정지</button>
-    <div class="slider">
-      <input type="range" min="-10" max="80" step="5" value="40" oninput="updateVolume(this.value, 'hairdryer')">
-      <div>볼륨: <span id="label-hairdryer">40</span> dB</div>
-    </div>
-  </div>
-
-  <div class="sound-block">
-    <h2>사물놀이 소리</h2>
-    <audio id="samulnori" src="samulnori.mp3" loop></audio>
-    <button onclick="togglePlay('samulnori')">▶ 재생 / ⏸ 정지</button>
-    <div class="slider">
-      <input type="range" min="-10" max="80" step="5" value="40" oninput="updateVolume(this.value, 'samulnori')">
-      <div>볼륨: <span id="label-samulnori">40</span> dB</div>
-    </div>
-  </div>
+  <div id="soundContainer"></div>
 
   <script>
-    function togglePlay(id) {
-      const audio = document.getElementById(id);
-      if (audio.paused) {
-        audio.play().catch(() => {
-          alert("브라우저에서 자동 재생이 차단됐어요. 버튼을 다시 눌러주세요.");
-        });
-      } else {
-        audio.pause();
-      }
-    }
+    const sounds = [
+      { name: "청소기 소리", file: "vacuum.mp3", id: "vacuum" },
+      { name: "사이렌 소리", file: "siren.mp3", id: "siren" },
+      { name: "헤어드라이기 소리", file: "hairdryer.mp3", id: "hairdryer" },
+      { name: "사물놀이 소리", file: "samulnori.mp3", id: "samulnori" },
+    ];
 
-    function updateVolume(db, id) {
-      const label = document.getElementById(`label-${id}`);
-      const audio = document.getElementById(id);
-      label.textContent = db;
-      let volume = Math.pow(10, (db - 80) / 20);
-      volume = Math.min(Math.max(volume, 0), 1);
-      audio.volume = volume;
-    }
+    const container = document.getElementById('soundContainer');
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const players = {};
+
+    sounds.forEach(sound => {
+      const block = document.createElement('div');
+      block.className = 'sound-block';
+      block.innerHTML = `
+        <h2>${sound.name}</h2>
+        <button id="btn-${sound.id}">▶ 재생 / ⏸ 정지</button>
+        <div class="slider">
+          <input type="range" min="-10" max="80" step="5" value="40" id="vol-${sound.id}">
+          <div>볼륨: <span id="label-${sound.id}">40</span> dB</div>
+        </div>
+      `;
+      container.appendChild(block);
+
+      // 오디오 초기화 (버튼 클릭 시 실행)
+      let buffer = null;
+      fetch(sound.file)
+        .then(res => res.arrayBuffer())
+        .then(data => audioCtx.decodeAudioData(data))
+        .then(decoded => buffer = decoded);
+
+      let source = null;
+      let gainNode = audioCtx.createGain();
+
+      document.getElementById(`btn-${sound.id}`).onclick = () => {
+        if (source) {
+          source.stop();
+          source = null;
+          return;
+        }
+
+        source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.loop = true;
+        source.connect(gainNode).connect(audioCtx.destination);
+        source.start();
+      };
+
+      document.getElementById(`vol-${sound.id}`).oninput = (e) => {
+        const db = e.target.value;
+        document.getElementById(`label-${sound.id}`).textContent = db;
+        const volume = Math.pow(10, (db - 80) / 20);
+        gainNode.gain.value = volume;
+      };
+    });
   </script>
 
 </body>
